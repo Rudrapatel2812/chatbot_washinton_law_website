@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4o-mini"
     openai_api_key: str | None = None
 
+    allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+
     rcw_base_url: str = "https://app.leg.wa.gov/rcw/"
     scraper_max_requests_per_second: int = Field(default=5, ge=1, le=5)
 
@@ -29,6 +31,9 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    def get_allowed_origins(self) -> list[str]:
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
 
 
 @lru_cache
