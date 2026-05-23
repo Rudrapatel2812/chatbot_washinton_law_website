@@ -2,6 +2,8 @@
 
 An AI-powered legal research chatbot grounded in Washington State law (RCW). Every answer cites the exact RCW section it came from — if the law isn't in the database, it says "I don't know" instead of guessing.
 
+**Live Demo:** https://chatbot-washinton-law-website.vercel.app
+
 ## Features
 
 - Semantic search over Washington State law using vector embeddings
@@ -36,6 +38,27 @@ An AI-powered legal research chatbot grounded in Washington State law (RCW). Eve
 └── .env.example          # Environment variable template
 ```
 
+## Deployment
+
+| Service | Platform | URL |
+|---|---|---|
+| Frontend | Vercel | https://chatbot-washinton-law-website.vercel.app |
+| Backend | Render | https://chatbot-washinton-law-website.onrender.com |
+| Database | Supabase | PostgreSQL + pgvector (hosted) |
+
+### Deploy your own
+
+**Backend (Render):**
+- Connect your GitHub repo — Render auto-detects `render.yaml`
+- Set environment variables in the Render dashboard (see list below)
+- Use the **Supabase Connection Pooler URL** (port 6543) for `DATABASE_URL` — the direct connection URL is IPv6-only and won't work on most platforms
+- Set `ALLOWED_ORIGINS` to your Vercel frontend URL
+
+**Frontend (Vercel):**
+- Set Root Directory to `frontend`
+- Add `NEXT_PUBLIC_API_URL` = your Render backend URL
+- Redeploy after setting env vars (the value is baked in at build time)
+
 ## Getting Started
 
 ### 1. Prerequisites
@@ -58,7 +81,7 @@ Fill in `backend/.env`:
 ```env
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-DATABASE_URL=postgresql://postgres:password@db.your-project.supabase.co:5432/postgres
+DATABASE_URL=postgresql://postgres.your-project:password@aws-0-us-west-2.pooler.supabase.com:6543/postgres
 OPENAI_API_KEY=sk-...
 ```
 
@@ -185,3 +208,4 @@ curl -X POST http://localhost:8000/api/query \
 | `EMBEDDING_MODEL` | Default: `text-embedding-3-small` |
 | `LLM_PROVIDER` | `openai` |
 | `LLM_MODEL` | Default: `gpt-4o-mini` |
+| `ALLOWED_ORIGINS` | Comma-separated list of allowed frontend URLs |
