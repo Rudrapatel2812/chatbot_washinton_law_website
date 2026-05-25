@@ -17,15 +17,29 @@
   box-sizing: border-box;
 }
 
+html {
+  height: 100%;
+  /* Prevent iOS from adjusting font sizes */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   font-family: 'Inter', system-ui, sans-serif;
   background: var(--color-bg);
   color: var(--color-text);
   margin: 0;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
 }
 
-html {
-  height: 100%;
+/* Remove tap highlight on mobile and prevent double-tap zoom */
+button, a {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth scrolling on iOS */
+* {
+  -webkit-overflow-scrolling: touch;
 }

@@ -4,6 +4,17 @@ import { useState, useRef, useEffect } from "react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return isMobile;
+}
+
 function getSessionId(): string {
   if (typeof window === "undefined") return "";
   let id = localStorage.getItem("session_id");
@@ -38,8 +49,10 @@ export default function ChatApp() {
   const [loading, setLoading] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const sessionId = useRef<string>("");
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     sessionId.current = getSessionId();
@@ -128,8 +141,25 @@ export default function ChatApp() {
     }
   }
 
+  const msgPadding = isMobile ? "0 12px" : "0 24px";
+  const userBubbleMax = isMobile ? "88%" : "70%";
+  const assistantBubbleMax = isMobile ? "95%" : "85%";
+
   return (
-    <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+    <div style={{ display: "flex", height: "100dvh", overflow: "hidden" }}>
+
+      {/* Mobile backdrop */}
+      {isMobile && sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: "fixed", inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            zIndex: 40,
+          }}
+        />
+      )}
+
       {/* Sidebar */}
       <aside style={{
         width: 260,
@@ -138,133 +168,234 @@ export default function ChatApp() {
         display: "flex",
         flexDirection: "column",
         overflowY: "auto",
+        ...(isMobile ? {
+          position: "fixed",
+          top: 0,
+          left: 0,
+          height: "100%",
+          zIndex: 50,
+          transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
+          transition: "transform 0.25s ease",
+        } : {}),
       }}>
+        {/* Sidebar header */}
         <div style={{ padding: "24px 20px 16px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 20 }}>⚖️</span>
-            <div>
+            <span style={{ fontSize: 22 }}>⚖️</span>
+            <div style={{ flex: 1 }}>
               <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1.2 }}>WA Legal</div>
               <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11 }}>Washington State Law</div>
             </div>
+            {isMobile && (
+              <button
+                onClick={() => setSidebarOpen(false)}
+                style={{
+                  background: "none", border: "none", color: "rgba(255,255,255,0.7)",
+                  cursor: "pointer", fontSize: 22, padding: "4px 8px",
+                  lineHeight: 1, minWidth: 44, minHeight: 44,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+              >✕</button>
+            )}
           </div>
         </div>
 
+        {/* New conversation button */}
         <div style={{ padding: "12px 16px" }}>
-          <button onClick={startNewChat} style={{
-            width: "100%",
-            padding: "8px 12px",
-            background: "rgba(255,255,255,0.1)",
-            color: "#fff",
-            border: "1px solid rgba(255,255,255,0.2)",
-            borderRadius: 6,
-            cursor: "pointer",
-            fontSize: 13,
-            fontWeight: 500,
-            textAlign: "left",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}>
-            <span>+</span> New Conversation
+          <button
+            onClick={() => { startNewChat(); setSidebarOpen(false); }}
+            style={{
+              width: "100%",
+              padding: "10px 14px",
+              background: "rgba(255,255,255,0.1)",
+              color: "#fff",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: 8,
+              cursor: "pointer",
+              fontSize: 14,
+              fontWeight: 500,
+              textAlign: "left",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              minHeight: 44,
+            }}
+          >
+            <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> New Conversation
           </button>
         </div>
 
+        {/* Conversation list */}
         <div style={{ flex: 1, overflowY: "auto", padding: "0 8px 16px" }}>
           {conversations.length > 0 && (
-            <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: 600, padding: "8px 8px 4px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            <div style={{
+              color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: 600,
+              padding: "8px 8px 4px", textTransform: "uppercase", letterSpacing: "0.05em",
+            }}>
               Recent
             </div>
           )}
           {conversations.map((conv) => (
-            <button key={conv.id} onClick={() => loadConversation(conv.id)} style={{
-              width: "100%",
-              padding: "8px 10px",
-              background: activeConversationId === conv.id ? "rgba(255,255,255,0.15)" : "transparent",
-              color: activeConversationId === conv.id ? "#fff" : "rgba(255,255,255,0.7)",
-              border: "none",
-              borderRadius: 6,
-              cursor: "pointer",
-              fontSize: 13,
-              textAlign: "left",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              display: "block",
-              marginBottom: 2,
-            }}>
+            <button
+              key={conv.id}
+              onClick={() => { loadConversation(conv.id); setSidebarOpen(false); }}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                background: activeConversationId === conv.id ? "rgba(255,255,255,0.15)" : "transparent",
+                color: activeConversationId === conv.id ? "#fff" : "rgba(255,255,255,0.7)",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontSize: 13,
+                textAlign: "left",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                display: "block",
+                marginBottom: 2,
+                minHeight: 44,
+              }}
+            >
               {conv.title || "Untitled"}
             </button>
           ))}
         </div>
 
+        {/* Sidebar footer */}
         <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
           <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>RCW Titles 1, 9, 9A</div>
         </div>
       </aside>
 
-      {/* Main */}
+      {/* Main content */}
       <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--color-bg)" }}>
-        {/* Disclaimer */}
+
+        {/* Mobile top bar */}
+        {isMobile && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 12,
+            background: "var(--color-primary)",
+            padding: "0 16px",
+            height: 52,
+            flexShrink: 0,
+          }}>
+            <button
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
+              style={{
+                background: "none", border: "none", color: "#fff",
+                cursor: "pointer", fontSize: 22, padding: "4px 8px",
+                lineHeight: 1, minWidth: 44, minHeight: 44,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >☰</button>
+            <span style={{ fontSize: 18 }}>⚖️</span>
+            <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>WA Legal</span>
+          </div>
+        )}
+
+        {/* Disclaimer banner */}
         <div style={{
           background: "#FEF9C3",
           color: "#92400E",
-          fontSize: 12,
-          padding: "6px 20px",
+          fontSize: isMobile ? 11 : 12,
+          padding: isMobile ? "6px 14px" : "6px 20px",
           textAlign: "center",
           borderBottom: "1px solid #FDE68A",
           flexShrink: 0,
+          lineHeight: 1.4,
         }}>
           Legal information only — not legal advice. Always consult a licensed attorney for your specific situation.
         </div>
 
-        {/* Messages */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "24px 0" }}>
+        {/* Messages / empty state */}
+        <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "16px 0" : "24px 0" }}>
           {messages.length === 0 ? (
-            <div style={{ textAlign: "center", marginTop: 80, padding: "0 24px" }}>
-              <div style={{ fontSize: 40, marginBottom: 16 }}>⚖️</div>
-              <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--color-primary)", marginBottom: 8 }}>
+            <div style={{
+              textAlign: "center",
+              marginTop: isMobile ? 32 : 72,
+              padding: isMobile ? "0 16px" : "0 24px",
+            }}>
+              <div style={{ fontSize: isMobile ? 36 : 44, marginBottom: 14 }}>⚖️</div>
+              <h1 style={{
+                fontSize: isMobile ? 20 : 24,
+                fontWeight: 700,
+                color: "var(--color-primary)",
+                marginBottom: 10,
+                lineHeight: 1.3,
+              }}>
                 Washington State Legal Assistant
               </h1>
-              <p style={{ color: "var(--color-muted)", fontSize: 15, maxWidth: 480, margin: "0 auto 32px" }}>
+              <p style={{
+                color: "var(--color-muted)",
+                fontSize: isMobile ? 14 : 15,
+                maxWidth: 480,
+                margin: "0 auto 28px",
+                lineHeight: 1.6,
+              }}>
                 Ask questions about Washington State law. Answers are grounded in RCW sections with citations.
               </p>
-              <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+
+              {/* Suggestion cards */}
+              <div style={{
+                display: "flex",
+                flexDirection: isMobile ? "column" : "row",
+                gap: isMobile ? 10 : 12,
+                justifyContent: "center",
+                alignItems: isMobile ? "stretch" : "flex-start",
+                maxWidth: isMobile ? "100%" : 680,
+                margin: "0 auto",
+              }}>
                 {[
                   "What is assault in the fourth degree?",
                   "Can someone carry a concealed gun in WA?",
                   "What does RCW 9A.36.041 say?",
                 ].map((q) => (
-                  <button key={q} onClick={() => setInput(q)} style={{
-                    padding: "10px 16px",
-                    background: "var(--color-surface)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    fontSize: 13,
-                    color: "var(--color-text)",
-                    maxWidth: 220,
-                    textAlign: "left",
-                    lineHeight: 1.4,
-                  }}>
+                  <button
+                    key={q}
+                    onClick={() => setInput(q)}
+                    style={{
+                      padding: isMobile ? "12px 16px" : "11px 16px",
+                      background: "var(--color-surface)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: 10,
+                      cursor: "pointer",
+                      fontSize: 14,
+                      color: "var(--color-text)",
+                      textAlign: "left",
+                      lineHeight: 1.45,
+                      minHeight: 44,
+                      ...(isMobile ? { width: "100%" } : { maxWidth: 220, flex: "1 1 0" }),
+                    }}
+                  >
                     {q}
                   </button>
                 ))}
               </div>
             </div>
           ) : (
-            <div style={{ maxWidth: 760, margin: "0 auto", padding: "0 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{
+              maxWidth: 760,
+              margin: "0 auto",
+              padding: msgPadding,
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+            }}>
               {messages.map((msg, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
-                  <div style={{ maxWidth: msg.role === "user" ? "70%" : "85%" }}>
+                  <div style={{ maxWidth: msg.role === "user" ? userBubbleMax : assistantBubbleMax }}>
                     <div style={{
-                      padding: "12px 16px",
-                      borderRadius: msg.role === "user" ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
+                      padding: isMobile ? "10px 14px" : "12px 16px",
+                      borderRadius: msg.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
                       background: msg.role === "user" ? "var(--color-primary)" : "var(--color-surface)",
                       color: msg.role === "user" ? "#fff" : "var(--color-text)",
                       border: msg.role === "user" ? "none" : "1px solid var(--color-border)",
-                      fontSize: 15,
+                      fontSize: isMobile ? 14 : 15,
                       lineHeight: 1.6,
                       whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
                     }}>
                       {msg.content}
                     </div>
@@ -278,13 +409,16 @@ export default function ChatApp() {
                             rel="noopener noreferrer"
                             style={{
                               fontSize: 12,
-                              padding: "3px 10px",
+                              padding: "4px 12px",
                               border: "1px solid var(--color-accent)",
                               color: "var(--color-accent)",
                               borderRadius: 20,
                               textDecoration: "none",
                               background: "transparent",
                               fontWeight: 500,
+                              minHeight: 30,
+                              display: "inline-flex",
+                              alignItems: "center",
                             }}
                           >
                             RCW {c.citation}
@@ -299,11 +433,11 @@ export default function ChatApp() {
                 <div style={{ display: "flex", justifyContent: "flex-start" }}>
                   <div style={{
                     padding: "12px 18px",
-                    borderRadius: "20px 20px 20px 4px",
+                    borderRadius: "18px 18px 18px 4px",
                     background: "var(--color-surface)",
                     border: "1px solid var(--color-border)",
                     color: "var(--color-muted)",
-                    fontSize: 15,
+                    fontSize: isMobile ? 14 : 15,
                   }}>
                     Searching Washington law...
                   </div>
@@ -316,12 +450,21 @@ export default function ChatApp() {
 
         {/* Input bar */}
         <div style={{
-          padding: "16px 24px",
+          padding: isMobile ? "10px 12px" : "14px 24px",
+          paddingBottom: isMobile
+            ? "calc(10px + env(safe-area-inset-bottom, 0px))"
+            : "14px",
           background: "var(--color-surface)",
           borderTop: "1px solid var(--color-border)",
           flexShrink: 0,
         }}>
-          <div style={{ maxWidth: 760, margin: "0 auto", display: "flex", gap: 10, alignItems: "flex-end" }}>
+          <div style={{
+            maxWidth: 760,
+            margin: "0 auto",
+            display: "flex",
+            gap: isMobile ? 8 : 10,
+            alignItems: "flex-end",
+          }}>
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -330,10 +473,10 @@ export default function ChatApp() {
               rows={1}
               style={{
                 flex: 1,
-                padding: "12px 16px",
+                padding: isMobile ? "10px 14px" : "12px 16px",
                 borderRadius: 24,
                 border: "1px solid var(--color-border)",
-                fontSize: 15,
+                fontSize: 16,
                 fontFamily: "inherit",
                 resize: "none",
                 outline: "none",
@@ -353,7 +496,7 @@ export default function ChatApp() {
               onClick={sendMessage}
               disabled={loading || !input.trim()}
               style={{
-                padding: "12px 20px",
+                padding: isMobile ? "10px 18px" : "12px 22px",
                 background: loading || !input.trim() ? "var(--color-border)" : "var(--color-accent)",
                 color: loading || !input.trim() ? "var(--color-muted)" : "#fff",
                 border: "none",
@@ -362,16 +505,20 @@ export default function ChatApp() {
                 fontSize: 14,
                 fontWeight: 600,
                 flexShrink: 0,
+                minHeight: 44,
+                minWidth: 64,
               }}
             >
               {loading ? "..." : "Send"}
             </button>
           </div>
-          <div style={{ maxWidth: 760, margin: "6px auto 0", textAlign: "center" }}>
-            <span style={{ fontSize: 12, color: "var(--color-muted)" }}>
-              Press Enter to send · Shift+Enter for new line
-            </span>
-          </div>
+          {!isMobile && (
+            <div style={{ maxWidth: 760, margin: "5px auto 0", textAlign: "center" }}>
+              <span style={{ fontSize: 12, color: "var(--color-muted)" }}>
+                Press Enter to send · Shift+Enter for new line
+              </span>
+            </div>
+          )}
         </div>
       </main>
     </div>
