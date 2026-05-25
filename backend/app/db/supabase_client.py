@@ -14,7 +14,12 @@ class Database:
     async def connect(self) -> None:
         if not self._settings.database_url:
             raise RuntimeError("DATABASE_URL is not configured.")
-        self._pool = await asyncpg.create_pool(str(self._settings.database_url), min_size=1, max_size=10)
+        self._pool = await asyncpg.create_pool(
+            str(self._settings.database_url),
+            min_size=1,
+            max_size=10,
+            statement_cache_size=0,
+        )
 
     async def close(self) -> None:
         if self._pool:

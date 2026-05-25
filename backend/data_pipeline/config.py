@@ -11,7 +11,7 @@ RAW_HTML_DIR = DATA_DIR / "raw_html"
 PARSED_JSON_DIR = DATA_DIR / "parsed_json"
 
 
-DEFAULT_TITLES = ("1", "9", "9A", "15")
+DEFAULT_TITLES = ("1", "9", "9A", "10", "15", "26", "46", "49", "59")
 
 
 class PipelineTitle(BaseModel):

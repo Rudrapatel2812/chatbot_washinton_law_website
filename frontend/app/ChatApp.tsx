@@ -264,7 +264,7 @@ export default function ChatApp() {
 
         {/* Sidebar footer */}
         <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>RCW Titles 1, 9, 9A</div>
+          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>RCW Titles 1, 9, 9A, 10, 26, 46, 49, 59</div>
         </div>
       </aside>
 
