@@ -348,9 +348,9 @@ export default function ChatApp() {
                 margin: "0 auto",
               }}>
                 {[
-                  "What is assault in the fourth degree?",
-                  "Can someone carry a concealed gun in WA?",
-                  "What does RCW 9A.36.041 say?",
+                  "How is child custody decided in Washington?",
+                  "Can a landlord keep my security deposit in WA?",
+                  "What is the DUI blood alcohol limit in Washington?",
                 ].map((q) => (
                   <button
                     key={q}
