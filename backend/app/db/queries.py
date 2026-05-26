@@ -218,3 +218,23 @@ async def fetch_messages(connection: asyncpg.Connection, conversation_id: str) -
         """,
         conversation_id,
     )
+
+
+async def fetch_messages_for_session(
+    connection: asyncpg.Connection,
+    conversation_id: str,
+    session_id: str,
+) -> list[asyncpg.Record]:
+    """Fetch messages only if the conversation belongs to the given session (ownership check)."""
+    return await connection.fetch(
+        """
+        SELECT m.id, m.role, m.content, m.citations, m.created_at
+        FROM messages m
+        JOIN conversations c ON c.id = m.conversation_id
+        WHERE m.conversation_id = $1
+          AND c.user_id = $2
+        ORDER BY m.created_at ASC
+        """,
+        conversation_id,
+        session_id,
+    )

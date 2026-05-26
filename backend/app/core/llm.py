@@ -9,5 +9,10 @@ class LLMProvider(Protocol):
     def model(self) -> str:
         ...
 
-    async def generate_answer(self, question: str, laws: list[RetrievedLaw]) -> Answer:
+    async def generate_answer(
+        self,
+        question: str,
+        laws: list[RetrievedLaw],
+        history: list[dict] | None = None,
+    ) -> Answer:
         ...

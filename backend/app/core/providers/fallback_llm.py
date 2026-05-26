@@ -3,13 +3,18 @@ from app.models.law import RetrievedLaw
 
 
 class ExtractiveLLMProvider:
-    """A safe fallback that returns retrieved excerpts without generation."""
+    """Safe fallback — returns retrieved excerpts without LLM generation."""
 
     @property
     def model(self) -> str:
         return "extractive-fallback-v1"
 
-    async def generate_answer(self, question: str, laws: list[RetrievedLaw]) -> Answer:
+    async def generate_answer(
+        self,
+        question: str,
+        laws: list[RetrievedLaw],
+        history: list[dict] | None = None,
+    ) -> Answer:
         if not laws:
             return Answer(
                 answer="I don't know based on the retrieved Washington law. This is legal information, not legal advice.",
