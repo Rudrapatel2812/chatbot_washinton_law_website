@@ -4,6 +4,56 @@ import { useState, useRef, useEffect } from "react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+const SEARCH_TITLES = [
+  "Criminal Code", "Motor Vehicles", "Domestic Relations",
+  "Landlord & Tenant", "Labor Regulations", "Criminal Procedure",
+  "Public Health & Safety", "Insurance Law", "Probate & Trust",
+  "Behavioral Health", "Juvenile Courts", "Real Property",
+  "Business Regulations", "Public Assistance", "Industrial Insurance",
+  "Unemployment Law", "General Provisions",
+];
+
+function SearchingIndicator() {
+  const [index, setIndex] = useState(() => Math.floor(Math.random() * SEARCH_TITLES.length));
+  const [key, setKey] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIndex((prev) => (prev + 1) % SEARCH_TITLES.length);
+      setKey((k) => k + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div style={{
+      padding: "14px 18px",
+      borderRadius: "18px 18px 18px 4px",
+      background: "var(--color-surface)",
+      border: "1px solid var(--color-border)",
+      minWidth: 260,
+      maxWidth: 320,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 15, flexShrink: 0 }}>🔍</span>
+        <span
+          key={key}
+          className="search-title-fade"
+          style={{ fontSize: 14, color: "var(--color-text)", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+        >
+          Searching {SEARCH_TITLES[index]}...
+        </span>
+      </div>
+      <div style={{ height: 3, background: "var(--color-border)", borderRadius: 2, overflow: "hidden" }}>
+        <div
+          className="search-scan-bar"
+          style={{ width: "30%", height: "100%", background: "var(--color-accent)", borderRadius: 2 }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -431,16 +481,7 @@ export default function ChatApp() {
               ))}
               {loading && (
                 <div style={{ display: "flex", justifyContent: "flex-start" }}>
-                  <div style={{
-                    padding: "12px 18px",
-                    borderRadius: "18px 18px 18px 4px",
-                    background: "var(--color-surface)",
-                    border: "1px solid var(--color-border)",
-                    color: "var(--color-muted)",
-                    fontSize: isMobile ? 14 : 15,
-                  }}>
-                    Searching Washington law...
-                  </div>
+                  <SearchingIndicator />
                 </div>
               )}
               <div ref={bottomRef} />
