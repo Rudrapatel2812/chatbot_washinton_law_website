@@ -1,93 +1,161 @@
 # Washington State Legal Assistant
 
-An AI-powered legal research chatbot grounded in Washington State law (RCW). Every answer cites the exact RCW section it came from — if the law isn't in the database, it says "I don't know" instead of guessing.
+> Built by [Rudra Patel](https://github.com/Rudrapatel2812)
 
-**Live Demo:** https://chatbot-washinton-law-website.vercel.app
+An AI-powered legal research tool grounded in Washington State Revised Code (RCW). Answers are generated strictly from retrieved law text and cite the exact RCW section — if the system cannot find relevant law, it says so rather than guessing.
 
-## Features
+**Live:** https://chatbot-washinton-law-website.vercel.app  
+**API:** https://chatbot-washinton-law-website.onrender.com
 
-- Semantic search over Washington State law using vector embeddings
-- Direct RCW citation lookup (e.g. "What does RCW 9A.36.041 say?")
-- Anti-hallucination: answers only from retrieved law, never from model knowledge
-- Conversation history saved per session
-- Clean professional UI with clickable RCW citations linking to official source
+---
 
-## Tech Stack
+## Architecture
+
+```
+User question
+     │
+     ▼
+OpenAI text-embedding-3-small
+     │
+     ▼
+pgvector cosine similarity search  ──  score > 0.4 threshold
+     │                                         │
+     ▼                                         ▼
+GPT-4o-mini (strict grounding prompt)    "I don't know"
++ last 3 conversation turns
+     │
+     ▼
+Answer + RCW citations → saved to Supabase
+```
+
+The model is not allowed to answer from general knowledge. If the retrieved sections don't support an answer, the response is "I don't know based on the retrieved Washington law."
+
+---
+
+## Stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | Next.js 16 (React, TypeScript) |
-| Backend | FastAPI (Python 3.11+) |
+| Frontend | Next.js 15, TypeScript, Tailwind CSS |
+| Backend | FastAPI, Python 3.11, asyncpg |
 | Database | Supabase PostgreSQL + pgvector |
-| Embeddings | OpenAI text-embedding-3-small |
-| LLM | OpenAI GPT-4o-mini |
-| Data | Washington RCW Titles 1, 9, 9A (1,059 sections) |
+| Embeddings | OpenAI `text-embedding-3-small` |
+| LLM | OpenAI `gpt-4o-mini` |
+| Hosting | Vercel + Render |
+| Rate limiting | slowapi — 15 req/min per IP |
+| Retries | tenacity — exponential backoff on transient errors |
+
+---
+
+## RCW Coverage
+
+20 titles, 12,000+ sections with vector embeddings.
+
+| Titles | Domain |
+|---|---|
+| 9, 9A, 10 | Criminal law, criminal procedure |
+| 26, 46, 59 | Family, motor vehicles, landlord-tenant |
+| 11, 13, 48, 49 | Probate, juvenile courts, insurance, labor |
+| 50, 51, 64 | Unemployment, workers' comp, real property |
+| 1, 19, 70, 71, 74 | General law, business, public health, behavioral health, public assistance |
+
+---
+
+## Sample Questions
+
+1. What is assault in the fourth degree in Washington?
+2. How is child custody decided in Washington State?
+3. Can a landlord keep my security deposit in Washington?
+4. What is the DUI blood alcohol limit in Washington?
+5. Who is prohibited from owning a firearm in Washington?
+6. How does Washington calculate child support?
+7. What injuries are covered by workers' compensation in Washington?
+8. What happens to property when someone dies without a will in Washington?
+9. What protections do whistleblowers have under Washington law?
+10. What does RCW 9A.36.041 say?
+
+---
 
 ## Project Structure
 
 ```
 ├── backend/
 │   ├── app/
-│   │   ├── api/          # FastAPI routes (chat, history, auth)
-│   │   ├── core/         # Embeddings, LLM, retrieval, prompts
-│   │   ├── db/           # Supabase client and SQL queries
-│   │   └── models/       # Pydantic models
-│   └── data_pipeline/    # Scraper, parser, loader, embedder
-├── database/             # SQL schema, indexes, RLS policies
-├── frontend/             # Next.js app
-└── .env.example          # Environment variable template
+│   │   ├── api/              # FastAPI routes (chat, history)
+│   │   ├── core/             # Embeddings, LLM, retrieval, prompts
+│   │   │   └── providers/    # Pluggable OpenAI implementations
+│   │   ├── db/               # asyncpg client, parameterized SQL queries
+│   │   ├── models/           # Pydantic v2 models
+│   │   ├── dependencies.py   # Singleton provider injection via FastAPI Depends
+│   │   ├── limiter.py        # slowapi rate limiter
+│   │   └── main.py           # Lifespan, middleware, CORS, rate limit handler
+│   └── data_pipeline/        # Scraper → parser → loader → embedder (rerunnable stages)
+├── database/
+│   ├── 01_schema.sql         # laws, law_embeddings, conversations, messages
+│   ├── 02_indexes.sql        # pgvector ivfflat, covering indexes
+│   └── 03_rls_policies.sql   # Row-level security
+├── frontend/
+│   └── app/
+│       ├── ChatApp.tsx       # Chat UI with session management
+│       └── globals.css       # Animations, iOS safe-area, mobile layout
+└── render.yaml               # Render deployment config
 ```
 
-## Deployment
+---
 
-| Service | Platform | URL |
+## API
+
+| Method | Endpoint | Description |
 |---|---|---|
-| Frontend | Vercel | https://chatbot-washinton-law-website.vercel.app |
-| Backend | Render | https://chatbot-washinton-law-website.onrender.com |
-| Database | Supabase | PostgreSQL + pgvector (hosted) |
+| `GET` | `/health` | Liveness check |
+| `POST` | `/api/query` | Submit a question |
+| `GET` | `/api/history/{session_id}` | List conversations |
+| `GET` | `/api/history/{session_id}/{conv_id}` | Load messages |
 
-### Deploy your own
+**POST /api/query**
 
-**Backend (Render):**
-- Connect your GitHub repo — Render auto-detects `render.yaml`
-- Set environment variables in the Render dashboard (see list below)
-- Use the **Supabase Connection Pooler URL** (port 6543) for `DATABASE_URL` — the direct connection URL is IPv6-only and won't work on most platforms
-- Set `ALLOWED_ORIGINS` to your Vercel frontend URL
+```bash
+curl -X POST https://chatbot-washinton-law-website.onrender.com/api/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What is assault in the fourth degree?", "session_id": "abc123"}'
+```
 
-**Frontend (Vercel):**
-- Set Root Directory to `frontend`
-- Add `NEXT_PUBLIC_API_URL` = your Render backend URL
-- Redeploy after setting env vars (the value is baked in at build time)
+```json
+{
+  "answer": "Under RCW 9A.36.041, a person is guilty of assault in the fourth degree...",
+  "citations": [
+    {
+      "citation": "RCW 9A.36.041",
+      "source_url": "https://app.leg.wa.gov/rcw/default.aspx?cite=9A.36.041",
+      "excerpt": "A person is guilty of assault in the fourth degree..."
+    }
+  ],
+  "confidence": "medium",
+  "conversation_id": "uuid"
+}
+```
 
-## Getting Started
+---
 
-### 1. Prerequisites
+## Running Locally
+
+### Prerequisites
 
 - Python 3.11+
 - Node.js 18+
-- Supabase project
+- Supabase project with pgvector enabled
 - OpenAI API key
 
-### 2. Clone and configure
+### Setup
 
 ```bash
-git clone <your-repo-url>
+git clone <repo-url>
 cd chatbot_washinton_law_website-main
 cp .env.example backend/.env
+# fill in backend/.env (see Environment Variables below)
 ```
 
-Fill in `backend/.env`:
-
-```env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-DATABASE_URL=postgresql://postgres.your-project:password@aws-0-us-west-2.pooler.supabase.com:6543/postgres
-OPENAI_API_KEY=sk-...
-```
-
-### 3. Set up the database
-
-In Supabase SQL Editor, run in order:
+**Database:** Run the following in Supabase SQL Editor in order:
 
 ```
 database/01_schema.sql
@@ -95,117 +163,55 @@ database/02_indexes.sql
 database/03_rls_policies.sql
 ```
 
-Then remove the auth foreign key (not needed without auth):
+Then drop the unused auth foreign key:
 
 ```sql
 ALTER TABLE conversations DROP CONSTRAINT conversations_user_id_fkey;
 ```
 
-### 4. Install Python dependencies
+**Data pipeline:**
 
 ```bash
 cd backend
 pip install -r requirements.txt
-```
 
-### 5. Run the data pipeline
-
-```bash
-cd backend
-
-# Scrape RCW from leg.wa.gov
-python -m data_pipeline.run scrape --titles 1 9 9A
-
-# Parse HTML into JSON
-python -m data_pipeline.run parse --titles 1 9 9A
-
-# Load into Supabase
-python -m data_pipeline.run load --titles 1 9 9A
-
-# Generate vector embeddings
+python -m data_pipeline.run scrape --titles 9 9A 26 46 59
+python -m data_pipeline.run parse  --titles 9 9A 26 46 59
+python -m data_pipeline.run load   --titles 9 9A 26 46 59
 python -m data_pipeline.run embed
 ```
 
-### 6. Start the backend
+**Start services:**
 
 ```bash
-cd backend
-python -m uvicorn app.main:app --reload --port 8000
+# Backend
+cd backend && uvicorn app.main:app --reload --port 8000
+
+# Frontend
+cd frontend && npm install && npm run dev
 ```
 
-### 7. Start the frontend
+---
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+## Deployment
 
-Open [http://localhost:3000](http://localhost:3000)
+**Backend (Render):** `render.yaml` is pre-configured. Set env vars in the dashboard. Use the Supabase Connection Pooler URL (port 6543, transaction mode) for `DATABASE_URL` — the direct URL is IPv6-only and will fail on Render.
 
-## API Endpoints
+**Frontend (Vercel):** Set Root Directory to `frontend`. Add `NEXT_PUBLIC_API_URL` pointing to your Render URL. Redeploy after setting it (baked in at build time).
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/health` | Health check |
-| POST | `/api/query` | Ask a legal question |
-| GET | `/api/history/{session_id}` | List conversations |
-| GET | `/api/history/{session_id}/{conv_id}` | Load messages |
-
-### Example request
-
-```bash
-curl -X POST http://localhost:8000/api/query \
-  -H "Content-Type: application/json" \
-  -d '{"question": "What is assault in the fourth degree?"}'
-```
-
-## Test Questions
-
-### Criminal Law (Title 9A)
-- What is assault in the fourth degree?
-- What is the difference between first and second degree murder in Washington?
-- What counts as robbery in Washington State?
-- What is the definition of burglary under Washington law?
-- What does Washington law say about stalking?
-- What is malicious mischief and what are the penalties?
-
-### Weapons (Title 9)
-- Can someone carry a concealed gun in Washington State?
-- Who is prohibited from owning a firearm in Washington?
-- What are the rules for purchasing a pistol in Washington State?
-- What is the penalty for possessing an illegal weapon?
-
-### Direct RCW Lookup
-- What does RCW 9A.36.041 say?
-- What does RCW 9.41.010 say?
-- What does RCW 9A.56.200 say?
-
-### Edge Cases (should say "I don't know")
-- What is the penalty for jaywalking? *(not in covered titles)*
-- What does Washington law say about income taxes? *(not covered)*
-- What is the speed limit in Washington? *(not covered)*
-
-## How It Works
-
-1. User submits a question
-2. The question is embedded using OpenAI text-embedding-3-small
-3. pgvector finds the most similar law sections (cosine similarity)
-4. If similarity is too low (score > 0.4), no results are returned → "I don't know"
-5. Retrieved law sections are passed to GPT-4o-mini with a strict prompt
-6. The model answers only from the retrieved text and cites the RCW sections used
-7. The answer and conversation are saved to Supabase
-
-## Environment Variables
+### Environment Variables
 
 | Variable | Description |
 |---|---|
-| `SUPABASE_URL` | Your Supabase project URL |
+| `DATABASE_URL` | Supabase pooler URL — port 6543 |
+| `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
-| `DATABASE_URL` | PostgreSQL connection string |
 | `OPENAI_API_KEY` | OpenAI API key |
-| `EMBEDDING_PROVIDER` | `openai` or `huggingface` |
-| `EMBEDDING_MODEL` | Default: `text-embedding-3-small` |
-| `LLM_PROVIDER` | `openai` |
-| `LLM_MODEL` | Default: `gpt-4o-mini` |
-| `ALLOWED_ORIGINS` | Comma-separated list of allowed frontend URLs |
+| `ALLOWED_ORIGINS` | Comma-separated allowed frontend origins |
+| `NEXT_PUBLIC_API_URL` | Backend URL (frontend, build-time) |
+
+---
+
+## Legal Disclaimer
+
+This tool provides legal information, not legal advice. Answers are derived from retrieved RCW text and may be incomplete or out of date. Consult a licensed Washington State attorney for advice specific to your situation.
