@@ -15,7 +15,10 @@ env/
 
 # Data (too large for git — regenerate with pipeline)
 data/
+
+# Ignore raw SQL dumps but track schema files
 *.sql
+!database/*.sql
 
 # Next.js
 frontend/.next/
